@@ -1,53 +1,89 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "/vite.svg";
+import React, { Suspense } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider } from "./contexts/AuthContext";
+import ErrorBoundary from "./components/ErrorBoundary";
+import { ToastProvider } from "./components/ui/Toast";
+import { createQueryClient } from "./lib/query-client";
+
+// Lazy load pages for code splitting
+const HomePage = React.lazy(() =>
+  import("./pages/HomePage").then((module) => ({ default: module.HomePage }))
+);
+const AuthPage = React.lazy(() =>
+  import("./pages/AuthPage").then((module) => ({ default: module.AuthPage }))
+);
+const SearchPage = React.lazy(() =>
+  import("./pages/SearchPage").then((module) => ({
+    default: module.SearchPage,
+  }))
+);
+
+// Loading component for lazy-loaded routes
+const PageLoader: React.FC = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+      <p className="mt-2 text-sm text-gray-600">Loading...</p>
+    </div>
+  </div>
+);
+
+// Create optimized query client
+const queryClient = createQueryClient();
 
 function App() {
-  const [count, setCount] = useState(0);
-
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
-      <div className="flex gap-8 mb-8">
-        <a
-          href="https://vite.dev"
-          target="_blank"
-          className="hover:opacity-80 transition-opacity"
-        >
-          <img src={viteLogo} className="h-24 w-24" alt="Vite logo" />
-        </a>
-        <a
-          href="https://react.dev"
-          target="_blank"
-          className="hover:opacity-80 transition-opacity"
-        >
-          <img
-            src={reactLogo}
-            className="h-24 w-24 animate-spin"
-            alt="React logo"
-          />
-        </a>
-      </div>
-      <h1 className="text-4xl font-bold text-gray-900 mb-8">
-        Vibe Coding Notes
-      </h1>
-      <div className="bg-white p-8 rounded-lg shadow-md">
-        <button
-          onClick={() => setCount((count) => count + 1)}
-          className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded transition-colors"
-        >
-          count is {count}
-        </button>
-        <p className="mt-4 text-gray-600">
-          Edit{" "}
-          <code className="bg-gray-100 px-2 py-1 rounded">src/App.tsx</code> and
-          save to test HMR
-        </p>
-      </div>
-      <p className="mt-8 text-gray-500 text-sm">
-        Click on the Vite and React logos to learn more
-      </p>
-    </div>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <AuthProvider>
+            <Router>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/search" element={<SearchPage />} />
+                  <Route path="/auth" element={<AuthPage />} />
+                  <Route
+                    path="/auth/callback"
+                    element={<AuthCallbackHandler />}
+                  />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
+            </Router>
+          </AuthProvider>
+        </ToastProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
+
+// Component to handle OAuth callback
+const AuthCallbackHandler: React.FC = () => {
+  React.useEffect(() => {
+    // The AuthProvider will handle the token from URL params
+    // Redirect to home after a short delay
+    const timer = setTimeout(() => {
+      window.location.href = "/";
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">Completing authentication...</p>
+      </div>
+    </div>
+  );
+};
 
 export default App;

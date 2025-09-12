@@ -12,7 +12,16 @@
         "build:backend": "cd backend && npm run build",
         "start": "npm run start:backend",
         "start:backend": "cd backend && npm start",
-        "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install"
+        "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+        "test": "node test-runner.js all",
+        "test:unit": "node test-runner.js unit",
+        "test:integration": "node test-runner.js integration",
+        "test:e2e": "node test-runner.js e2e",
+        "test:quick": "node test-runner.js --skip-setup --skip-cleanup",
+        "docker:dev": "docker-compose -f docker-compose.dev.yml up -d",
+        "docker:prod": "docker-compose up -d",
+        "docker:down": "docker-compose down",
+        "docker:clean": "docker-compose down -v --remove-orphans && docker system prune -f"
     },
     "devDependencies": {
         "concurrently": "^9.1.0"

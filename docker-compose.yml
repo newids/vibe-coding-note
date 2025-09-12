@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: vibe-coding-notes-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vibe_coding_notes}
+      POSTGRES_USER: ${POSTGRES_USER:-username}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-username} -d ${POSTGRES_DB:-vibe_coding_notes}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: vibe-coding-notes-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vibe-coding-notes-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-3001}:3001"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3001
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-username}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-vibe_coding_notes}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - SESSION_SECRET=${SESSION_SECRET}
+      # OAuth Configuration
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
+      - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
+      - APPLE_CLIENT_ID=${APPLE_CLIENT_ID}
+      - APPLE_TEAM_ID=${APPLE_TEAM_ID}
+      - APPLE_KEY_ID=${APPLE_KEY_ID}
+      - APPLE_PRIVATE_KEY_PATH=${APPLE_PRIVATE_KEY_PATH}
+      - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
+      - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
+      - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
+      - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app-network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:3001}
+    container_name: vibe-coding-notes-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge

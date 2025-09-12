@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -14,6 +15,7 @@ model User {
   id         String   @id @default(cuid())
   email      String   @unique
   name       String
+  password   String?  // Optional for OAuth users
   avatar     String?
   role       UserRole @default(VISITOR)
   provider   AuthProvider
@@ -48,6 +50,13 @@ model Note {
   comments Comment[]
   likes    Like[]
 
+  // Indexes for performance
+  @@index([published, createdAt(sort: Desc)])
+  @@index([published, updatedAt(sort: Desc)])
+  @@index([published, likeCount(sort: Desc)])
+  @@index([categoryId, published])
+  @@index([authorId])
+  @@index([title])
   @@map("notes")
 }
 
@@ -66,6 +75,10 @@ model Comment {
   parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
   replies  Comment[] @relation("CommentReplies")
 
+  // Indexes for performance
+  @@index([noteId, createdAt(sort: Desc)])
+  @@index([authorId])
+  @@index([parentId])
   @@map("comments")
 }
 
@@ -103,6 +116,7 @@ model NoteTags {
   tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([noteId, tagId])
+  @@index([tagId])
   @@map("note_tags")
 }
 
@@ -117,6 +131,8 @@ model Like {
 
   // Prevent duplicate likes from same IP for same note
   @@unique([noteId, ipAddress])
+  @@index([noteId])
+  @@index([createdAt])
   @@map("likes")
 }
 

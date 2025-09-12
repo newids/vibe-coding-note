@@ -1,0 +1,136 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String
+  avatar     String?
+  role       UserRole @default(VISITOR)
+  provider   AuthProvider
+  providerId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  notes    Note[]
+  comments Comment[]
+
+  @@map("users")
+}
+
+model Note {
+  id         String   @id @default(cuid())
+  title      String
+  content    String
+  excerpt    String
+  slug       String   @unique
+  authorId   String
+  categoryId String
+  likeCount  Int      @default(0)
+  published  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  category Category  @relation(fields: [categoryId], references: [id])
+  tags     NoteTags[]
+  comments Comment[]
+  likes    Like[]
+
+  @@map("notes")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  noteId    String
+  authorId  String
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  note     Note      @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies  Comment[] @relation("CommentReplies")
+
+  @@map("comments")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  color       String
+  createdAt   DateTime @default(now())
+
+  // Relations
+  notes Note[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  // Relations
+  notes NoteTags[]
+
+  @@map("tags")
+}
+
+model NoteTags {
+  noteId String
+  tagId  String
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, tagId])
+  @@map("note_tags")
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  noteId    String
+  ipAddress String
+  createdAt DateTime @default(now())
+
+  // Relations
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  // Prevent duplicate likes from same IP for same note
+  @@unique([noteId, ipAddress])
+  @@map("likes")
+}
+
+enum UserRole {
+  OWNER
+  VISITOR
+}
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+  GITHUB
+  FACEBOOK
+  APPLE
+  NAVER
+  KAKAO
+}

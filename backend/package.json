@@ -7,7 +7,15 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:db": "ts-node src/test-db.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:seed": "ts-node prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset"
   },
   "keywords": [
     "coding",
@@ -17,6 +25,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^6.16.1",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
@@ -29,7 +38,9 @@
     "passport-facebook": "^3.0.0",
     "passport-github2": "^0.1.12",
     "passport-google-oauth20": "^2.0.0",
-    "passport-local": "^1.0.0"
+    "passport-local": "^1.0.0",
+    "pg": "^8.16.3",
+    "prisma": "^6.16.1"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
@@ -44,8 +55,12 @@
     "@types/passport-github2": "^1.2.9",
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/passport-local": "^1.0.38",
+    "@types/pg": "^8.15.5",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
 }

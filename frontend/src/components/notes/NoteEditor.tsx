@@ -84,24 +84,13 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (
-      !formData.title.trim() ||
-      !formData.content.trim() ||
-      !formData.categoryId
-    ) {
-      alert("Please fill in all required fields");
-      return;
-    }
-
+  const onSubmit = (data: NoteFormData) => {
     const noteData = {
-      title: formData.title.trim(),
-      content: formData.content.trim(),
-      categoryId: formData.categoryId,
-      tagIds: formData.tagIds,
-      published: formData.published,
+      title: data.title.trim(),
+      content: data.content.trim(),
+      categoryId: data.categoryId,
+      tagIds: selectedTags.map((tag) => tag.id),
+      published: data.published || false,
     };
 
     if (isEditing && note) {
@@ -113,10 +102,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
   const handleTagsChange = (tags: Tag[]) => {
     setSelectedTags(tags);
-    setFormData((prev) => ({
-      ...prev,
-      tagIds: tags.map((tag) => tag.id),
-    }));
+    setValue(
+      "tags",
+      tags.map((tag) => tag.id)
+    );
   };
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
@@ -155,7 +144,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form
+            id="note-form"
+            onSubmit={handleSubmit(onSubmit)}
+            className="space-y-6"
+          >
             {/* Title */}
             <div>
               <label
@@ -167,14 +160,15 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               <input
                 type="text"
                 id="title"
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, title: e.target.value }))
-                }
+                {...register("title")}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Enter note title..."
-                required
               />
+              {errors.title && (
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.title.message}
+                </p>
+              )}
             </div>
 
             {/* Category */}
@@ -184,13 +178,18 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               </label>
               <CategorySelector
                 categories={categories}
-                selectedCategoryId={formData.categoryId}
+                selectedCategoryId={watch("categoryId")}
                 onCategoryChange={(categoryId) =>
-                  setFormData((prev) => ({ ...prev, categoryId }))
+                  setValue("categoryId", categoryId)
                 }
                 placeholder="Select a category"
                 required
               />
+              {errors.categoryId && (
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.categoryId.message}
+                </p>
+              )}
             </div>
 
             {/* Tags */}
@@ -220,7 +219,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                   <div className="prose max-w-none">
                     <div
                       dangerouslySetInnerHTML={{
-                        __html: formData.content.replace(/\n/g, "<br>"),
+                        __html: watchedContent.replace(/\n/g, "<br>"),
                       }}
                       className="whitespace-pre-wrap"
                     />
@@ -229,18 +228,16 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               ) : (
                 <textarea
                   id="content"
-                  value={formData.content}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      content: e.target.value,
-                    }))
-                  }
+                  {...register("content")}
                   rows={12}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Write your note content here..."
-                  required
                 />
+              )}
+              {errors.content && (
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.content.message}
+                </p>
               )}
             </div>
 
@@ -249,13 +246,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               <input
                 type="checkbox"
                 id="published"
-                checked={formData.published}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    published: e.target.checked,
-                  }))
-                }
+                {...register("published")}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
               <label
@@ -278,13 +269,18 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             Cancel
           </button>
           <button
-            onClick={handleSubmit}
-            disabled={isLoading}
+            type="submit"
+            form="note-form"
+            disabled={isLoading || isSubmitting}
             className="flex items-center space-x-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
             <span>
-              {isLoading ? "Saving..." : isEditing ? "Update" : "Create"}
+              {isLoading || isSubmitting
+                ? "Saving..."
+                : isEditing
+                ? "Update"
+                : "Create"}
             </span>
           </button>
         </div>

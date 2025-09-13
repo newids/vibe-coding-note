@@ -61,7 +61,8 @@ export const noteFormSchema = z.object({
     title: titleSchema,
     content: contentSchema,
     categoryId: z.string().min(1, 'Category is required'),
-    tags: z.array(z.string()).optional()
+    tags: z.array(z.string()).optional(),
+    published: z.boolean().optional()
 });
 
 export const commentFormSchema = z.object({
@@ -85,7 +86,7 @@ export const validateEmail = (email: string): string | null => {
         return null;
     } catch (error) {
         if (error instanceof z.ZodError) {
-            return error.errors[0].message;
+            return error.issues[0].message;
         }
         return 'Invalid email';
     }
@@ -97,7 +98,7 @@ export const validatePassword = (password: string): string | null => {
         return null;
     } catch (error) {
         if (error instanceof z.ZodError) {
-            return error.errors[0].message;
+            return error.issues[0].message;
         }
         return 'Invalid password';
     }

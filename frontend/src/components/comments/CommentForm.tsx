@@ -2,8 +2,11 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "../ui/Toast";
-import { commentFormSchema, CommentFormData } from "../../lib/validation";
 import { ApiErrorHandler } from "../../lib/errors";
+
+interface CommentFormData {
+  content: string;
+}
 
 interface CommentFormProps {
   onSubmit: (content: string) => Promise<void>;
@@ -28,50 +31,48 @@ const CommentForm: React.FC<CommentFormProps> = ({
     formState: { errors, isSubmitting },
     reset,
   } = useForm<CommentFormData>({
-    resolver: zodResolver(commentFormSchema),
+    defaultValues: {
+      content: "",
+    },
   });
 
   const handleFormSubmit = async (data: CommentFormData) => {
-    setError(null);
-
     try {
-      await onSubmit(content.trim());
-      setContent("");
+      await onSubmit(data.content.trim());
+      reset();
     } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to post comment"
+      showError(
+        ApiErrorHandler.getErrorMessage(error, "Failed to post comment")
       );
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleCancel = () => {
-    setContent("");
-    setError(null);
+    reset();
     if (onCancel) {
       onCancel();
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
       <div>
         <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
+          {...register("content")}
           placeholder={placeholder}
           rows={3}
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
           disabled={isSubmitting}
         />
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        {errors.content && (
+          <p className="mt-1 text-sm text-red-600">{errors.content.message}</p>
+        )}
       </div>
 
       <div className="flex items-center space-x-3">
         <button
           type="submit"
-          disabled={isSubmitting || !content.trim()}
+          disabled={isSubmitting}
           className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? "Posting..." : submitText}

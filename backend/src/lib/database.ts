@@ -12,15 +12,6 @@ const prisma = globalThis.__prisma || new PrismaClient({
         db: {
             url: process.env.DATABASE_URL
         }
-    },
-    // Connection pool configuration
-    __internal: {
-        engine: {
-            // Connection pool settings
-            connection_limit: parseInt(process.env.DB_CONNECTION_LIMIT || '10'),
-            pool_timeout: parseInt(process.env.DB_POOL_TIMEOUT || '10'),
-            schema_cache_size: parseInt(process.env.DB_SCHEMA_CACHE_SIZE || '1000')
-        }
     }
 });
 

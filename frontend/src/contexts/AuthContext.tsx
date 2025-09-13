@@ -1,15 +1,18 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { authApi, tokenStorage, type User } from "../lib/auth";
+import React, { createContext, useContext, useState, ReactNode } from "react";
+import { apiClient } from "../lib/api";
 
-interface AuthContextType {
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface AuthContextType {
   user: User | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
-  error: string | null;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,134 +26,62 @@ export const useAuth = () => {
 };
 
 interface AuthProviderProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [error, setError] = useState<string | null>(null);
-  const queryClient = useQueryClient();
-
-  // Get current user query
-  const { data: user, isLoading } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: async () => {
-      const token = tokenStorage.get();
-      if (!token) return null;
-
-      try {
-        const response = await authApi.getCurrentUser(token);
-        return response.data.user;
-      } catch (error) {
-        // If token is invalid, remove it
-        tokenStorage.remove();
-        return null;
-      }
-    },
-    retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-
-  // Login mutation
-  const loginMutation = useMutation({
-    mutationFn: async ({
-      email,
-      password,
-    }: {
-      email: string;
-      password: string;
-    }) => {
-      const response = await authApi.login({ email, password });
-      return response;
-    },
-    onSuccess: (data) => {
-      tokenStorage.set(data.data.token);
-      queryClient.setQueryData(["currentUser"], data.data.user);
-      setError(null);
-    },
-    onError: (error: any) => {
-      const message = error.response?.data?.error?.message || "Login failed";
-      setError(message);
-    },
-  });
-
-  // Register mutation
-  const registerMutation = useMutation({
-    mutationFn: async ({
-      email,
-      password,
-      name,
-    }: {
-      email: string;
-      password: string;
-      name: string;
-    }) => {
-      const response = await authApi.register({ email, password, name });
-      return response;
-    },
-    onSuccess: (data) => {
-      tokenStorage.set(data.data.token);
-      queryClient.setQueryData(["currentUser"], data.data.user);
-      setError(null);
-    },
-    onError: (error: any) => {
-      const message =
-        error.response?.data?.error?.message || "Registration failed";
-      setError(message);
-    },
-  });
-
-  // Logout mutation
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      const token = tokenStorage.get();
-      if (token) {
-        await authApi.logout(token);
-      }
-    },
-    onSuccess: () => {
-      tokenStorage.remove();
-      queryClient.setQueryData(["currentUser"], null);
-      queryClient.clear();
-      setError(null);
-    },
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true); // Start with true to check for existing user
 
   const login = async (email: string, password: string) => {
-    await loginMutation.mutateAsync({ email, password });
+    setIsLoading(true);
+    try {
+      const response = await apiClient.login(email, password);
+      setUser(response.user);
+      localStorage.setItem("user", JSON.stringify(response.user));
+      localStorage.setItem("token", response.token);
+    } catch (error) {
+      throw new Error("Login failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const register = async (email: string, password: string, name: string) => {
-    await registerMutation.mutateAsync({ email, password, name });
+  const register = async (name: string, email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const response = await apiClient.register(name, email, password);
+      setUser(response.user);
+      localStorage.setItem("user", JSON.stringify(response.user));
+      localStorage.setItem("token", response.token);
+    } catch (error) {
+      throw new Error("Registration failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {
-    logoutMutation.mutate();
+    setUser(null);
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
   };
 
-  // Handle OAuth callback
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get("token");
-    const provider = urlParams.get("provider");
-
-    if (token && provider) {
-      tokenStorage.set(token);
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
+  // Check for existing user on mount
+  React.useEffect(() => {
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
     }
-  }, [queryClient]);
+    setIsLoading(false); // Done checking for existing user
+  }, []);
 
   const value: AuthContextType = {
-    user: user || null,
-    isLoading:
-      isLoading || loginMutation.isPending || registerMutation.isPending,
-    isAuthenticated: !!user,
+    user,
     login,
     register,
     logout,
-    error,
+    isLoading,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
